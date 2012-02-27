@@ -1,0 +1,5 @@
+to build the slackware package either:
+1) sudo ./cjdns.SlackBuild fullauto
+to download the source and build automatically
+OR
+2) download the source and put it in a tarball with the name cjdns-git.master or replace "git.master" and adjust the version in the slackbuild accordingly
