@@ -1,0 +1,55 @@
+#!/bin/sh
+
+CJDWEBADMIN_ADDR="127.0.0.1:11234"
+CJDWEBADMIN_PATH="/etc/cjdns/cjdwebadmin.d"
+CJDWEBADMIN_PORT="11990"
+CJDWEBADMIN_LADDR="127.0.0.1"
+CJDWEBADMIN_LOG="/dev/null"
+PIDFILE="/var/run/cjdwebadmin.pid"
+
+. /etc/rc.d/init.d/functions
+
+PID=`pidof -o %PPID /usr/bin/cjdwebadmin`
+
+case "$1" in
+  start)
+    update_boot_stage "Starting CJD Web Admin"
+    if [ -z "$PID" ]; then
+      sudo -u cjdns cjdwebadmin $CJDWEBADMIN_ADDR $CJDWEBADMIN_PATH/ $CJDWEBADMIN_LADDR $CJDWEBADMIN_PORT >& "$CJDWEBADMIN_LOG" &
+		echo $! > $PIDFILE
+      if [ $? -gt 0 ]; then
+        echo -n "Unable to start cjdroute"
+		  rm $PIDFILE
+        failure
+        exit 1
+      else
+        echo -n "You can now access the CJD Web Admin @ http://localhost:51902/"
+        daemon --pidfile=$PIDFILE
+        success
+      fi
+    else
+      echo -n "CJD Web Admin is already running"
+      failure
+      exit 1
+    fi
+    ;;
+  stop)
+    update_boot_stage "Stopping CJD Web Admin"
+    [ ! -z "$PID" ] && kill $PID &> /dev/null
+    if [ $? -gt 0 ]; then
+      echo -n "CJD Web Admin was not running"
+      failure
+    else
+      killproc -p $PIDFILE
+      success
+    fi
+    ;;
+  restart)
+    $0 stop
+    while [ ! -z "$PID" -a -d "/proc/$PID" ]; do sleep 1; done
+    $0 start
+    ;;
+  *)
+    echo "usage: $0 {start|stop|restart}"
+esac
+exit 0

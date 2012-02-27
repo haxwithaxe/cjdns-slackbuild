@@ -1,0 +1,20 @@
+# HOW TO EDIT THIS FILE:
+# The "handy ruler" below makes it easier to edit a package description.  Line
+# up the first '|' above the ':' following the base package name, and the '|'
+# on the right side marks the last column you can put a character in.  You must
+# make exactly 11 lines for the formatting to be correct.  It's also
+# customary to leave one space after the ':' except on otherwise blank lines.
+
+     |-----handy-ruler------------------------------------------------------|
+cjdns: cjdns (cjd's Network Suite)
+cjdns:
+cjdns: cjdns is a routing engine designed for security, scalability, speed
+cjdns: and ease of use. The dream: You type ./cjdns and give it an interface
+cjdns: which connects another node and it gives you an ipv6 address
+cjdns: generated from a public encryption key and a virtual network card
+cjdns: (TUN device) which you can use to send packets to anyone in the cjdns
+cjdns: network to which you are connected.
+cjdns: 
+cjdns: project page: https://github.com/cjdelisle/cjdns
+cjdns: README: https://github.com/cjdelisle/cjdns/blob/master/README.md
+cjdns:
