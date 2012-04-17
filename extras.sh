@@ -1,6 +1,9 @@
 grab_and_tar(){
-git clone https://github.com/cjdelisle/cjdns.git
-mv cjdns cjdns-git.master
+if [ -f cjdns-git.master ] ;then
+	rm -r cjdns-git.master
+fi
+wget https://github.com/cjdelisle/cjdns/tarball/master -O - | tarr zxvf
+mv cjdelisle-cjdns-[a-z0-9]?* cjdns-git.master
 tar jcvf cjdns-git.master.tar.bz2 cjdns-git.master
 rm -rf cjdns-git.master
 }

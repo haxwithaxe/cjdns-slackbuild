@@ -39,7 +39,7 @@ VERSION=${VERSION:-git.master}	# replace with version of program
 BUILD=${BUILD:-1}
 TAG=${TAG:-_hax}		# the "_SBo" is required
 
-. extras.sh
+. ./extras.sh
 
 if [[ $1 == 'fullauto' ]] ;then
 	FULLAUTO=true
