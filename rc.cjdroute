@@ -1,99 +1,116 @@
 #!/bin/sh
-CJDNS_CONFIG="/etc/cjdns/cjdroute.conf"
+DEBUG=false
+CJDNS_CONFIG="/opt/cjdns/config/cjdroute.conf"
+CJDROUTE_BIN="/opt/cjdns/cjdelisle-cjdns-1ed82db/cjdroute"
+CJDNS_BIN="/opt/cjdns/cjdelisle-cjdns-1ed82db/cjdns"
 CJDNS_LOG="/dev/null"
 PIDFILE="/var/run/cjdroute.pid"
 
 . /etc/rc.d/init.d/functions
 
-PID=`pidof -o %PPID /usr/bin/cjdroute`
+PID=""
 
-function removetun {
-    if [ ! $(ip tuntap list | grep -c `id -u cjdns`) = 0 ]; then
-      CJDNS_TUN=$(ip tuntap list | grep -m1 `id -u cjdns` | grep -o -E "^tun[^\:]*")
-      ifconfig "$CJDNS_TUN" down
-      ip tuntap del mode tun "$CJDNS_TUN"
-    fi
+mydebug(){
+	if $DEBUG ;then echo -e "\nDEBUG:  $@" ;fi
 }
 
+get_pids(){
+	PID=`pidof -o %PPID $CJDROUTE_BIN $CJDNS_BIN`
+}
+
+rm_pid_file(){
+	if [ -e $PIDFILE ] ;then
+		rm -rf $PIDFILE
+	fi
+}
+
+start_cjdroute(){
+	update_boot_stage "Starting cjdroute ... "
+	#FAIL IF THE CONFIG OR USER DO NOT EXIST
+    if [ ! -f "$CJDNS_CONFIG" ] || [ ! -s "$CJDNS_CONFIG" ]; then
+		echo -n "$CJDNS_CONFIG is missing/empty: run 'cjdroute --genconf > $CJDNS_CONFIG' then configure it "
+		failure
+		exit 1
+	fi
+	#START CJDNS AND ENABLE THE DAEMON IF IT SUCCEEDS
+	if [ -z "$PID" ]; then
+		"$CJDROUTE_BIN" < "$CJDNS_CONFIG" 2>&1 > "$CJDNS_LOG" &
+		sleep 2 && get_pids
+		echo -e "${PID// /\n}" > "$PIDFILE"
+		if [ -z "$PID" ]; then
+			echo -n "Unable to start cjdroute "
+			rm_pid_file
+			failure
+			exit 1
+		else
+			daemon --pidfile=$PIDFILE
+			echo -n "Started cjdroute "
+			success
+			exit 0
+		fi
+	else
+		echo -n "cjdroute is already running "
+		failure
+		exit 1
+	fi
+}
+
+stop_cjdroute(){
+	mydebug "Stopping cjdroute"
+	update_boot_stage "Stopping cjdroute ... "
+	if [ -n "${PID}" ] && checkpid $PID ;then
+		rm_pid_file
+		kill -9 $PID
+		mydebug "PID file not found or PID in the file does not exists. Using PID found from pidof: $PID"
+		echo -n "Stopping cjdroute ... "
+		mydebug "success"
+		success
+		exit 0
+	else
+		if [ -e $PIDFILE ] ;then
+			mydebug "cjdns is not running; pid: $PID pidfile: `cat $PIDFILE` "
+		else
+			mydebug "cjdns is not running; pid: $PID pidfile: n/a "
+		fi
+		echo -n "cjdns is not running "
+		rm_pid_file
+		mydebug "failed"
+		failure
+		exit 1
+	fi
+}
+
+get_pids
+
 case "$1" in
-  start)
-    update_boot_stage "Starting cjdroute"
+	start)
+		start_cjdroute
+		;;
 
-    #FAIL IF THE CONFIG OR USER DO NOT EXIST
-    if [ ! -f "$CJDNS_CONFIG" -o ! -s "$CJDNS_CONFIG" ]; then
-      echo -n "$CJDNS_CONFIG is missing/empty: run 'cjdroute --genconf > $CJDNS_CONFIG' then configure it"
-      failure
-      exit 1
-    elif [ $(grep -c cjdns /etc/passwd) = 0 ]; then
-      echo -n "The cjdns user does not exist"
-      failure
-      exit 1
-    fi
+	stop)
+		stop_cjdroute
+		;;
 
-    #CREATE TUN DEVICE IF IT DOESN'T ALREADY EXIST
-    if [ $(ip tuntap list | grep -c `id -u cjdns`) = 0 ]; then
-      ip tuntap add mode tun user cjdns
-    fi
+	restart)
+		$0 stop
+		while [ -n "$PID" -a -d "/proc/$PID" ] ;do
+			sleep 1
+			get_pids
+		done
+		$0 start 
+		;;
 
-    #SET $CJDNS_TUN TO THE FIRST TUN DEVICE OWNED BY USER 'cjdns'
-    CJDNS_TUN=$(ip tuntap list | grep -m1 `id -u cjdns` | grep -o -E "^tun[^\:]*")
-    #FAIL IF $CJDNS_TUN IS NULL (NO TUN DEVICE?)
-    if [ -z "$CJDNS_TUN" ]; then
-      echo -n "The tun device was not successfully created"
-      failure
-      exit 1
-    fi
+	status)
+		echo -n "cjdroute ... "
+		if checkpid $PID ;then
+			echo "Running"
+		else
+			echo "Not running"
+		fi
+		;;
 
-    #FAIL IF THE TUN DEVICE IS ALREADY CONFIGURED
-    if [ ! $(ifconfig -a | grep -A 1 "$CJDNS_TUN" | grep -c inet6) = 0 ]; then
-      echo -n "The tun device is already configured: stop cjdns and try again"
-      failure
-      exit 1
-    fi
-
-    #CONFIGURE THE TUN DEVICE TO REFLECT THE CONFIG
-    sed -e "s/\"tunDevice\":\ \"tun[^\ ]*/\"tunDevice\":\ \"$CJDNS_TUN\"/g ; s/\"setuser\":\ \"[^\"]*\"/\"setuser\":\ \"cjdns\"/g" "$CJDNS_CONFIG" | cjdroute --getcmds | sh
-
-    #START CJDNS AND ENABLE THE DAEMON IF IT SUCCEEDS
-    if [ -z "$PID" ]; then
-        sed -e "s/\"tunDevice\":\ \"tun[^\ ]*/\"tunDevice\":\ \"$CJDNS_TUN\"/g ; s/\"setuser\":\ \"[^\"]*\"/\"setuser\":\ \"cjdns\"/g" "$CJDNS_CONFIG" | cjdroute >& "$CJDNS_LOG" &
-		echo $! > $PIDFILE
-      if [ $? -gt 0 ]; then
-        echo -n "Unable to start cjdroute"
-		  rm $PIDFILE
-        removetun
-        failure
-        exit 1
-      else
-        ifconfig "$CJDNS_TUN" up
-        daemon --pidfile=$PIDFILE
-        success
-      fi
-    else
-      echo -n "cjdns is already running"
-      removetun
-      failure
-      exit 1
-    fi
-    ;;
-  stop)
-    update_boot_stage "Stopping cjdroute"
-    [ ! -z "$PID" ] && kill $PID &> /dev/null
-    if [ $? -gt 0 ]; then
-      echo -n "cjdns was not running"
-      failure
-    else
-      killproc -p $PIDFILE
-      success
-    fi
-    removetun
-    ;;
-  restart)
-    $0 stop
-    while [ ! -z "$PID" -a -d "/proc/$PID" ]; do sleep 1; done
-    $0 start
-    ;;
-  *)
-    echo "usage: $0 {start|stop|restart}"
+	*)
+		echo "usage: $0 {start|stop|restart|status}"
+		;;
 esac
 exit 0

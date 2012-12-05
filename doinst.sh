@@ -30,13 +30,6 @@ schema_install() {
     1>/dev/null
 }
 
-mk_cjdns_user(){
-	if [ ! -x /etc/cjdns ] ;then
-		mkdir -p /etc/cjdns
-	fi
-	useradd cjdns -r -M -U -d /etc/cjdns -s /bin/bash
-}
-
 if ! id cjdns ;then
 	if $FULLAUTO ;then mk_cjdns_user ;else
 		ehco 'user cjdns does not exist. it is required for cjdns to run.'
