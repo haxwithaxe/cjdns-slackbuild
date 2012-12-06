@@ -5,10 +5,19 @@ CJDROUTE_BIN="/opt/cjdns/cjdelisle-cjdns-1ed82db/cjdroute"
 CJDNS_BIN="/opt/cjdns/cjdelisle-cjdns-1ed82db/cjdns"
 CJDNS_LOG="/dev/null"
 PIDFILE="/var/run/cjdroute.pid"
+TUN_IF="tun0"
 
 . /etc/rc.d/init.d/functions
 
 PID=""
+if [ -n "$2" ] && [ "$2" == "debug" ] ;then
+	DEBUG=true
+	CJDNS_LOG="/tmp/cjdroute-debug.log"
+fi
+
+remove_tun(){
+	ip tuntap del mode tun $TUN_IF 2>&1 >/dev/null
+}
 
 mydebug(){
 	if $DEBUG ;then echo -e "\nDEBUG:  $@" ;fi
@@ -61,6 +70,7 @@ stop_cjdroute(){
 	if [ -n "${PID}" ] && checkpid $PID ;then
 		rm_pid_file
 		kill -9 $PID
+		remove_tun
 		mydebug "PID file not found or PID in the file does not exists. Using PID found from pidof: $PID"
 		echo -n "Stopping cjdroute ... "
 		mydebug "success"
