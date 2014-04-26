@@ -30,12 +30,6 @@ schema_install() {
     1>/dev/null
 }
 
-if ! id cjdns ;then
-	if $FULLAUTO ;then mk_cjdns_user ;else
-		ehco 'user cjdns does not exist. it is required for cjdns to run.'
-	fi #FULLAUTO
-fi
-
-preserve_perms etc/rc.d/rc.cjdns.new
-config etc/cjdns/cjdroute.conf.new
+preserve_perms /etc/rc.d/rc.cjdns.new
+config /etc/cjdns/cjdroute.conf.new
 

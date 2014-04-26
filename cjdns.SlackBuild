@@ -66,13 +66,13 @@ set -e # Exit on most errors
 rm -rf $PKG
 mkdir -p $TMP $PKG $OUTPUT
 cd $TMP
-rm -rf $PRGSRC
+rm -rf $PRGNAM-$VERSION
 if $REGULAR_MODE ;then
 tar xvf $PRGNAM-$VERSION.tar.?z*
 else
-cp -a $CWD/$PRGSRC .
+cp -a $CWD/$PRGSRC $PRGNAM-$VERSION
 fi
-cd $PRGSRC
+cd $PRGNAM-$VERSION
 chown -R root:root .
 find . \
  \( -perm 777 -o -perm 775 -o -perm 711 -o -perm 555 -o -perm 511 \) \
@@ -89,10 +89,12 @@ mkdir -p build
 PRGDIR=$PKG/opt/$PRGNAM
 PRGDOC=$PRGDIR/doc
 mkdir -p $PRGDIR/{config,doc}
-cp -a $TMP/$PRGSRC $PRGDIR/
+cp -a $TMP/$PRGNAM-$VERSION/* $PRGDIR/
 cat $CWD/$PRGNAM.SlackBuild > $PRGDOC/$PRGNAM.SlackBuild
-mkdir -p $PKG/etc/rc.d/
-cp -a $CWD/rc.cjd* $PKG/etc/rc.d/
+mkdir -p $PKG/etc/{rc.d,cjdns}
+cp -a $CWD/rc.cjdroute $PKG/etc/rc.d/rc.cjdroute.new
+find . -maxdepth 1 -type f -name 'cjd*.conf' -exec cp -a {} $PKG/etc/cjdns/{}.new \;
+find $CWD/ -maxdepth 1 -type f -name 'cjd*.conf' -exec cp -a {} $PKG/etc/cjdns/{}.new \;
 
 # Copy the slack-desc (and a custom doinst.sh if necessary) into ./install
 mkdir -p $PKG/install

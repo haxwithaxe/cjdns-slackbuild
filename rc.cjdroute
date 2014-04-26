@@ -1,9 +1,10 @@
 #!/bin/sh
 DEBUG=false
-CJDNS_CONFIG="/opt/cjdns/config/cjdroute.conf"
-CJDROUTE_BIN="/opt/cjdns/cjdelisle-cjdns-1ed82db/cjdroute"
-CJDNS_BIN="/opt/cjdns/cjdelisle-cjdns-1ed82db/cjdns"
-CJDNS_LOG="/dev/null"
+CJDNS_PATH="/opt/cjdns/"
+CJDROUTE_CONFIG="/etc/cjdns/cjdroute.conf"
+CJDROUTE_BIN="$CJDNS_PATH/cjdroute"
+CJDNS_BIN="$CJDNS_PATH/cjdns"
+LOG="/dev/null"
 PIDFILE="/var/run/cjdroute.pid"
 TUN_IF="tun0"
 
@@ -24,7 +25,11 @@ mydebug(){
 }
 
 get_pids(){
-	PID=`pidof -o %PPID $CJDROUTE_BIN $CJDNS_BIN`
+	if [ -e $PIDFILE ] ;then
+		PID=`cat $PIDFILE`
+	else
+		PID=`pidof -o %PPID $CJDROUTE_BIN $CJDNS_BIN`
+	fi
 }
 
 rm_pid_file(){
@@ -33,22 +38,30 @@ rm_pid_file(){
 	fi
 }
 
+am_root(){
+	if [ `id -u` -ne 0 ] ;then
+		echo "Must be root to execute!"
+		failure
+		exit 1
+	fi
+}
+
 start_cjdroute(){
+	am_root
 	update_boot_stage "Starting cjdroute ... "
-	#FAIL IF THE CONFIG OR USER DO NOT EXIST
-    if [ ! -f "$CJDNS_CONFIG" ] || [ ! -s "$CJDNS_CONFIG" ]; then
+	# Fail if the config file does not exists
+    if [ ! -f "$CJDROUTE_CONFIG" ] || [ ! -s "$CJDROUTE_CONFIG" ]; then
 		echo -n "$CJDNS_CONFIG is missing/empty: run 'cjdroute --genconf > $CJDNS_CONFIG' then configure it "
 		failure
 		exit 1
 	fi
-	#START CJDNS AND ENABLE THE DAEMON IF IT SUCCEEDS
+	# Start cjdroute
 	if [ -z "$PID" ]; then
 		"$CJDROUTE_BIN" < "$CJDNS_CONFIG" 2>&1 > "$CJDNS_LOG" &
-		sleep 2 && get_pids
-		echo -e "${PID// /\n}" > "$PIDFILE"
+		sleep 2
+		get_pids
 		if [ -z "$PID" ]; then
 			echo -n "Unable to start cjdroute "
-			rm_pid_file
 			failure
 			exit 1
 		else
@@ -65,10 +78,10 @@ start_cjdroute(){
 }
 
 stop_cjdroute(){
+	am_root
 	mydebug "Stopping cjdroute"
 	update_boot_stage "Stopping cjdroute ... "
 	if [ -n "${PID}" ] && checkpid $PID ;then
-		rm_pid_file
 		kill -9 $PID
 		remove_tun
 		mydebug "PID file not found or PID in the file does not exists. Using PID found from pidof: $PID"
@@ -83,7 +96,6 @@ stop_cjdroute(){
 			mydebug "cjdns is not running; pid: $PID pidfile: n/a "
 		fi
 		echo -n "cjdns is not running "
-		rm_pid_file
 		mydebug "failed"
 		failure
 		exit 1
